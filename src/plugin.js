@@ -17,13 +17,16 @@ Chart.Zoom.defaults = Chart.defaults.global.plugins.zoom = {
 		enabled: false,
 		mode: 'xy',
 		speed: 20,
-		threshold: 10
+		threshold: 10,
+		modifierKey: null,
+		requireModifierNonMouse: false,
 	},
 	zoom: {
 		enabled: false,
 		mode: 'xy',
 		sensitivity: 3,
-		speed: 0.1
+		speed: 0.1,
+		wheelModifierKey: null
 	}
 };
 
@@ -510,6 +513,20 @@ var zoomPlugin = {
 
 		var _scrollTimeout = null;
 		chartInstance.$zoom._wheelHandler = function(event) {
+			var zoomOptions = chartInstance.$zoom._options.zoom;
+
+			if (zoomOptions
+					&& zoomOptions.wheelModifierKey
+					&& !event[zoomOptions.wheelModifierKey + 'Key']) {
+				if (typeof zoomOptions.onWheelModifierKeyFailed === 'function') {
+					zoomOptions.onWheelModifierKeyFailed({
+						chart: chartInstance,
+						event: event
+					});
+				}
+				return;
+			}
+
 			// Prevent the event from triggering the default behavior (eg. Content scrolling).
 			if (event.cancelable) {
 				event.preventDefault();
@@ -530,7 +547,6 @@ var zoomPlugin = {
 				y: offsetY
 			};
 
-			var zoomOptions = chartInstance.$zoom._options.zoom;
 			var speedPercent = zoomOptions.speed;
 
 			if (event.deltaY >= 0) {
@@ -547,10 +563,33 @@ var zoomPlugin = {
 		};
 
 		if (Hammer) {
+			var panEnabler = function(recognizer, event) {
+				const panOptions = chartInstance.$zoom._options.pan;
+				if (!panOptions || !panOptions.enabled) {
+					return false;
+				}
+				if (!event || !event.srcEvent) { // Sometimes Hammer queries this with a null event.
+					return true;
+				}
+				const requireModifier = panOptions.modifierKey
+					&& (panOptions.requireModifierNonMouse || event.pointerType === 'mouse');
+				if (requireModifier && !event.srcEvent[panOptions.modifierKey + 'Key']) {
+					if (typeof panOptions.onModifierKeyFailed === 'function') {
+						panOptions.onModifierKeyFailed({
+							chart: chartInstance,
+							event: event
+						});
+					}
+					return false;
+				}
+				return true;
+			};
+
 			var mc = new Hammer.Manager(node);
 			mc.add(new Hammer.Pinch());
 			mc.add(new Hammer.Pan({
-				threshold: panThreshold
+				threshold: panThreshold,
+				enable: panEnabler
 			}));
 
 			// Hammer reports the total scaling. We need the incremental amount
