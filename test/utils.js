@@ -96,12 +96,24 @@ function triggerMouseEvent(chart, type, el) {
 	var x = el ? el.x !== undefined ? el.x : el._model.x : null;
 	var y = el ? el.y !== undefined ? el.y : el._model.y : null;
 
+	// Note that in at least some configurations, the deltaY values
+	// we pass in here are not propagated to the code under test.
 	var event = new MouseEvent(type, {
 		clientX: el ? rect.left + x : undefined,
 		clientY: el ? rect.top + y : undefined,
 		cancelable: true,
 		bubbles: true,
-		view: window
+		view: window,
+		ctrlKey: (el && el.ctrlKey) || false,
+		altKey: (el && el.altKey) || false,
+		shiftKey: (el && el.shiftKey) || false,
+		metaKey: (el && el.metaKey) || false,
+		movementX: (el && el.movementX),
+		movementY: (el && el.movementY),
+		deltaY: el && el.deltaY,
+		deltaMode: (el && el.deltaY) ? WheelEvent.DOM_DELTA_LINE : undefined,
+		button: 0,
+		which: 1
 	});
 
 	node.dispatchEvent(event);
